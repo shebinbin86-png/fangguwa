@@ -600,7 +600,8 @@
       plasticSplice: {
         up: {"60":{spec:"110×60",sell:30,cost:19}, "80":{spec:"110×80",sell:45,cost:30}, "100":{spec:"110×100",sell:55,cost:35}},
         mid: {"60":{spec:"110×60",sell:30,cost:18}, "80":{spec:"110×80",sell:45,cost:30}, "100":{spec:"110×100",sell:55,cost:35}},
-        down: {"40":{spec:"110×40",sell:25,cost:14}, "50":{spec:"110×50",sell:28,cost:15}, "60":{spec:"110×60",sell:30,cost:19}, "80":{spec:"110×80",sell:45,cost:30}, "100":{spec:"110×100",sell:55,cost:35}}
+        down: {"40":{spec:"110×40",sell:25,cost:14}, "50":{spec:"110×50",sell:28,cost:15}, "60":{spec:"110×60",sell:30,cost:19}, "80":{spec:"110×80",sell:45,cost:30}, "100":{spec:"110×100",sell:55,cost:35}},
+        cheapOverride: {"100": {sell: 35, cost: 25}}
       },
       pavilion: {
         mid60:{name:"拼中",spec:"110×60",sell:30,cost:17},
@@ -734,6 +735,11 @@
       const data = PRICE.plasticSplice[part][String(size)];
       console.log(`[chooseSplicePrice] part=${part}, size=${size}, scenario=${scenario}, normalData=`, JSON.stringify(data));
       if (scenario !== "cheap") return data;
+      const override = PRICE.plasticSplice.cheapOverride && PRICE.plasticSplice.cheapOverride[String(size)];
+      if (override) {
+        console.log(`[chooseSplicePrice] 便宜料拼接覆盖: size=${size}, override=`, JSON.stringify(override));
+        return {spec: data.spec, sell: override.sell, cost: override.cost};
+      }
       const key = `110×${size}`;
       const cheapData = PRICE.plasticOne.cheap[key];
       if (cheapData) {
