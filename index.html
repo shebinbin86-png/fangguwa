@@ -817,7 +817,7 @@
         }
         genMid([], numMids);
         if (combos.length > 0) {
-          const result = combos.sort((a,b) => a.over - b.over || a.types - b.types)[0];
+          const result = combos.sort((a,b) => a.over - b.over || a.types - b.types || a.parts[a.parts.length-1].size - b.parts[b.parts.length-1].size)[0];
           console.log(`[choosePlasticSplice] slopeCm=${slopeCm}, 选择方案:`, result.parts.map(p=>`${p.part}×${p.size}`).join(" + "), `总长=${result.total}, 超出=${result.over}`);
           return result;
         }
