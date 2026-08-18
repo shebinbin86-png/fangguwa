@@ -1938,7 +1938,14 @@ const CM = 100;
     }
 
     function renderTabs() {
-      $("tabs").innerHTML = quotes.map((q,i)=>`<button class="tab ${i===active?'active':''}" onclick="active=${i};renderTabs();renderQuote()">${q.title}</button>`).join("");
+      $("tabs").innerHTML = quotes.map((q,i)=>`<button class="tab ${i===active?'active':''}" data-idx="${i}">${q.title}</button>`).join("");
+      $("tabs").querySelectorAll(".tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+          active = Number(btn.dataset.idx);
+          renderTabs();
+          renderQuote();
+        });
+      });
     }
 
     function generalNote() {
