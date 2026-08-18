@@ -733,25 +733,12 @@
 
     function chooseSplicePrice(part, size, scenario) {
       const data = PRICE.plasticSplice[part][String(size)];
-      console.log(`[chooseSplicePrice] part=${part}, size=${size}, scenario=${scenario}, normalData=`, JSON.stringify(data));
       if (scenario !== "cheap") return data;
       const override = PRICE.plasticSplice.cheapOverride && PRICE.plasticSplice.cheapOverride[String(size)];
-      if (override) {
-        console.log(`[chooseSplicePrice] 便宜料拼接覆盖: size=${size}, override=`, JSON.stringify(override));
-        return {spec: data.spec, sell: override.sell, cost: override.cost};
-      }
-      const key = `110×${size}`;
-      const cheapData = PRICE.plasticOne.cheap[key];
-      if (cheapData) {
-        console.log(`[chooseSplicePrice] 便宜料精确匹配: key=${key}, cheapData=`, JSON.stringify(cheapData));
-        return {spec: data.spec, sell: cheapData.sell, cost: cheapData.cost};
-      }
-      const cheapKeys = Object.keys(PRICE.plasticOne.cheap).map(k => Number(k.match(/×(\d+)/)[1])).sort((a,b)=>a-b);
-      const sizeNum = Number(size);
-      const nearest = cheapKeys.reduce((prev, curr) => Math.abs(curr - sizeNum) < Math.abs(prev - sizeNum) ? curr : prev);
-      const near = PRICE.plasticOne.cheap[`110×${nearest}`];
-      console.log(`[chooseSplicePrice] 便宜料回退: size=${size} → nearest=${nearest}, nearData=`, JSON.stringify(near));
-      return {spec: data.spec, sell: near.sell, cost: near.cost};
+      if (override) return {spec: data.spec, sell: override.sell, cost: override.cost};
+      const cheapData = PRICE.plasticOne.cheap[`110×${size}`];
+      // ponytail: fallback to normal if cheap data missing (shouldn't happen with current sizes)
+      return cheapData ? {spec: data.spec, sell: cheapData.sell, cost: cheapData.cost} : data;
     }
 
     function choosePavilionPrice(pavData, scenario) {
@@ -791,17 +778,12 @@
     }
 
     function cornerExtensionRidges(edgeCm, count, usable) {
-      let totalExt = 0;
-      for (let i=0;i<count;i++) {
-        totalExt += Math.max(0, edgeCm - usable);
-      }
-      return Math.ceil(totalExt / 100);
+      return Math.ceil(count * Math.max(0, edgeCm - usable) / 100);
     }
 
     function hipRafterLen(B, angleRad) {
-      const H = (B / 2) * Math.tan(angleRad);
-      const hipHoriz = Math.sqrt((B/2)**2 + (B/2)**2);
-      return Math.sqrt(hipHoriz**2 + H**2);
+      const h = (B / 2) * Math.tan(angleRad);
+      return Math.sqrt((B/2)**2 * 2 + h**2);
     }
 
     function choosePlasticSplice(slopeCm) {
@@ -823,12 +805,9 @@
         }
         genMid([], numMids);
         if (combos.length > 0) {
-          const result = combos.sort((a,b) => a.over - b.over || a.types - b.types || a.parts[a.parts.length-1].size - b.parts[b.parts.length-1].size)[0];
-          console.log(`[choosePlasticSplice] slopeCm=${slopeCm}, 选择方案:`, result.parts.map(p=>`${p.part}×${p.size}`).join(" + "), `总长=${result.total}, 超出=${result.over}`);
-          return result;
+          return combos.sort((a,b) => a.over - b.over || a.types - b.types || a.parts[a.parts.length-1].size - b.parts[b.parts.length-1].size)[0];
         }
       }
-      console.log(`[choosePlasticSplice] slopeCm=${slopeCm}, 无合适方案`);
       return null;
     }
 
@@ -852,9 +831,7 @@
         }
         if (over === 0) break;
       }
-      const result = best || choosePlasticSplice(slopeCm);
-      console.log(`[chooseCheapSplice] slopeCm=${slopeCm}, 选择方案:`, result ? result.parts.map(p=>`${p.part}×${p.size}`).join(" + ") : "无", `总长=${result?.total}, 超出=${result?.over}`);
-      return result;
+      return best || choosePlasticSplice(slopeCm);
     }
 
     function inputDims() {
@@ -931,26 +908,21 @@
         }
       } else {
         const onePiece = slope <= 120;
-        console.log(`[buildPlasticRoof] scenario=${scenario}, roof=${roof}, slope=${slope}cm, onePiece=${onePiece}, A=${A}, B=${B}, C=${C}, ridgeLength=${ridgeLength}`);
-        const sideTiles = B > 0 && B < 105 ? 1 : Math.max(1, ceilBy(B || slope, 105));
         const strictCut = roof === "single" || roof === "double";
         let faceWidths = [];
         if (roof === "single") faceWidths = [A];
         if (roof === "double") faceWidths = [A,A];
         if (roof === "three") faceWidths = [A, B || slope, B || slope];
         if (roof === "four") faceWidths = [A,A,B || slope,B || slope];
-        console.log(`[buildPlasticRoof] faceWidths=[${faceWidths.join(",")}], strictCut=${strictCut}`);
 
         if (onePiece) {
           const spec = matchOneSpec(slope);
           const qty = splitCountByWidth(faceWidths, 105, strictCut);
           const p = choosePlasticPrice(spec, scenario, color);
-          console.log(`[buildPlasticRoof] 一体瓦: spec=110×${spec}, qty=${qty}, sell=${p.sell}, cost=${p.cost}`);
           addItem(items, "一体瓦", `110×${spec}`, qty, p.sell, p.cost);
           tileCount = qty;
         } else {
           const combo = scenario === "cheap" ? chooseCheapSplice(slope) : choosePlasticSplice(slope);
-          console.log(`[buildPlasticRoof] 拼接瓦方案: ${combo.parts.map(p=>`${p.part}×${p.size}`).join(" + ")}, total=${combo.total}, over=${combo.over}`);
           let topWidths = faceWidths.map(() => 0);
           if (roof === "single" || roof === "double") {
             topWidths = faceWidths.map(w => w);
@@ -959,10 +931,8 @@
           } else if (roof === "four") {
             topWidths = [ridgeLength, ridgeLength, 0, 0];
           }
-          console.log(`[buildPlasticRoof] topWidths=[${topWidths.join(",")}]`);
           let cumSize = 0;
           combo.parts.forEach((part, idx) => {
-            const startH = slope * cumSize / combo.total;
             cumSize += part.size;
             const endH = slope * cumSize / combo.total;
             const widthsAtBottom = faceWidths.map((bottom, i) => {
@@ -972,11 +942,9 @@
             const qty = splitCountByWidth(widthsAtBottom, 105, strictCut);
             const data = chooseSplicePrice(part.part, part.size, scenario);
             const name = part.part === "up" ? "拼上" : part.part === "mid" ? "拼中" : "拼下";
-            console.log(`[buildPlasticRoof] 段${idx+1}: ${name}×${part.size}, startH=${fmt(startH)}, endH=${fmt(endH)}, widthsAtBottom=[${widthsAtBottom.map(w=>fmt(w)).join(",")}], qty=${qty}, sell=${data.sell}, cost=${data.cost}`);
             addItem(items, name, data.spec, qty, data.sell, data.cost, `组合总长${combo.total}公分，段底宽度约${fmt(widthsAtBottom[0])}公分`);
             tileCount += qty;
           });
-          console.log(`[buildPlasticRoof] 拼接瓦总片数=${tileCount}`);
         }
 
         const ridgeLen = roof === "single" || roof === "double" ? A : ridgeLength;
@@ -1131,98 +1099,47 @@
       return String(keys[keys.length-1]);
     }
 
-    function buildSealingStandard() {
+    function buildSealing(series, accSuffix, prefix, seriesLabel, scenarioLabel) {
       const wallW = mToCm($("A").value), wallH = mToCm($("B").value);
       const color = $("color").value || "深灰色";
       const items = [];
-      const dims = {A:wallW, B:wallH};
-      const notes = [];
-      const std = PRICE.sealing.standard;
-      const sizeKey = selectSealingSize(std, wallH);
-      const data = std[sizeKey];
+      const sizeKey = selectSealingSize(series, wallH);
+      const data = series[sizeKey];
       const rows = Math.max(1, Math.ceil(wallH / data.height));
       const hTiles = Math.max(1, Math.ceil(wallW / data.effWidth));
       const total = rows * hTiles;
-      addItem(items, `${sizeKey}封板瓦`, `${data.thick} ${data.height}公分高`, total, data.sell, data.cost, `有效宽${data.effWidth}公分，${rows}行×${hTiles}张/行`);
-      const acc = PRICE.sealing.acc[sizeKey];
+      addItem(items, `${prefix}${sizeKey}封板瓦`, `${data.thick} ${data.height}公分高`, total, data.sell, data.cost, `有效宽${data.effWidth}公分，${rows}行×${hTiles}张/行`);
+      const acc = PRICE.sealing.acc[sizeKey + accSuffix];
       const hasEave = acc.eave.name.includes("飞檐");
       const accNotes = [];
-      const eaveQty = Number($("sealEave").value) || 0;
-      const flatQty = Number($("sealFlat").value) || 0;
-      const innerQty = Number($("sealInner").value) || 0;
-      const outerQty = Number($("sealOuter").value) || 0;
-      if (eaveQty > 0 && hasEave) {
-        addItem(items, `${sizeKey}飞檐`, `${sizeKey}封板瓦配套`, eaveQty, acc.eave.sell, acc.eave.cost, "顶部用");
-        accNotes.push(`飞檐${eaveQty}个`);
+      const qtys = ["sealEave","sealFlat","sealInner","sealOuter"].map(id => Number($(id).value) || 0);
+      if (qtys[0] > 0 && hasEave) {
+        addItem(items, `${prefix}${sizeKey}飞檐`, `${prefix}${sizeKey}配套`, qtys[0], acc.eave.sell, acc.eave.cost, "顶部用");
+        accNotes.push(`飞檐${qtys[0]}个`);
       }
-      if (flatQty > 0) {
-        addItem(items, `${sizeKey}平封`, `${sizeKey}封板瓦配套`, flatQty, acc.eave.sell, acc.eave.cost, hasEave ? "底部用" : "每列1个");
-        accNotes.push(`平封${flatQty}个`);
+      if (qtys[1] > 0) {
+        addItem(items, `${prefix}${sizeKey}平封`, `${prefix}${sizeKey}配套`, qtys[1], acc.eave.sell, acc.eave.cost, hasEave ? "底部用" : "每列1个");
+        accNotes.push(`平封${qtys[1]}个`);
       }
-      if (innerQty > 0) {
-        addItem(items, `${sizeKey}内角`, `${sizeKey}封板瓦配套`, innerQty, acc.corner.sell, acc.corner.cost, "转角用");
-        accNotes.push(`内角${innerQty}个`);
+      if (qtys[2] > 0) {
+        addItem(items, `${prefix}${sizeKey}内角`, `${prefix}${sizeKey}配套`, qtys[2], acc.corner.sell, acc.corner.cost, "转角用");
+        accNotes.push(`内角${qtys[2]}个`);
       }
-      if (outerQty > 0) {
-        addItem(items, `${sizeKey}外角`, `${sizeKey}封板瓦配套`, outerQty, acc.corner.sell, acc.corner.cost, "转角用");
-        accNotes.push(`外角${outerQty}个`);
+      if (qtys[3] > 0) {
+        addItem(items, `${prefix}${sizeKey}外角`, `${prefix}${sizeKey}配套`, qtys[3], acc.corner.sell, acc.corner.cost, "转角用");
+        accNotes.push(`外角${qtys[3]}个`);
       }
       if ($("sealScrew").checked) {
         const screws = round10(8 * (wallW / 100) * rows);
         addItem(items, PRICE.sealing.screw.name, PRICE.sealing.screw.spec, screws, PRICE.sealing.screw.sell, PRICE.sealing.screw.cost, "每米8个");
         accNotes.push(`螺丝${screws}个`);
       }
-      notes.push(`封板瓦标准系列：墙面宽${fmt(wallW)}公分×高${fmt(wallH)}公分。`);
-      notes.push(`选用${sizeKey}封板瓦（${data.thick}厚，高${data.height}公分），有效宽度${data.effWidth}公分。`);
-      notes.push(`排版：${rows}行×${hTiles}张/行=${total}张。配件：${accNotes.length ? accNotes.join("、") : "无"}。瓦片可切割。`);
-      return makeQuote(`封板瓦-${color}标准`, `${color}标准`, mergeItems(items), dims, notes);
-    }
-
-    function buildSealingPainted() {
-      const wallW = mToCm($("A").value), wallH = mToCm($("B").value);
-      const color = $("color").value || "深灰色";
-      const items = [];
-      const dims = {A:wallW, B:wallH};
-      const notes = [];
-      const pnt = PRICE.sealing.painted;
-      const sizeKey = selectSealingSize(pnt, wallH);
-      const data = pnt[sizeKey];
-      const rows = Math.max(1, Math.ceil(wallH / data.height));
-      const hTiles = Math.max(1, Math.ceil(wallW / data.effWidth));
-      const total = rows * hTiles;
-      addItem(items, `彩绘${sizeKey}封板瓦`, `3mm ${data.height}公分高`, total, data.sell, data.cost, `有效宽${data.effWidth}公分，${rows}行×${hTiles}张/行`);
-      const acc = PRICE.sealing.acc[sizeKey + "p"];
-      const hasEave = acc.eave.name.includes("飞檐");
-      const accNotes = [];
-      const eaveQty = Number($("sealEave").value) || 0;
-      const flatQty = Number($("sealFlat").value) || 0;
-      const innerQty = Number($("sealInner").value) || 0;
-      const outerQty = Number($("sealOuter").value) || 0;
-      if (eaveQty > 0 && hasEave) {
-        addItem(items, `彩绘${sizeKey}飞檐`, `彩绘${sizeKey}配套`, eaveQty, acc.eave.sell, acc.eave.cost, "顶部用");
-        accNotes.push(`飞檐${eaveQty}个`);
-      }
-      if (flatQty > 0) {
-        addItem(items, `彩绘${sizeKey}平封`, `彩绘${sizeKey}配套`, flatQty, acc.eave.sell, acc.eave.cost, hasEave ? "底部用" : "每列1个");
-        accNotes.push(`平封${flatQty}个`);
-      }
-      if (innerQty > 0) {
-        addItem(items, `彩绘${sizeKey}内角`, `彩绘${sizeKey}配套`, innerQty, acc.corner.sell, acc.corner.cost, "转角用");
-        accNotes.push(`内角${innerQty}个`);
-      }
-      if (outerQty > 0) {
-        addItem(items, `彩绘${sizeKey}外角`, `彩绘${sizeKey}配套`, outerQty, acc.corner.sell, acc.corner.cost, "转角用");
-        accNotes.push(`外角${outerQty}个`);
-      }
-      if ($("sealScrew").checked) {
-        const screws = round10(8 * (wallW / 100) * rows);
-        addItem(items, PRICE.sealing.screw.name, PRICE.sealing.screw.spec, screws, PRICE.sealing.screw.sell, PRICE.sealing.screw.cost, "每米8个");
-        accNotes.push(`螺丝${screws}个`);
-      }
-      notes.push(`封板瓦彩绘系列：墙面宽${fmt(wallW)}公分×高${fmt(wallH)}公分。`);
-      notes.push(`选用彩绘${sizeKey}封板瓦（3mm厚，高${data.height}公分），有效宽度${data.effWidth}公分。`);
-      notes.push(`排版：${rows}行×${hTiles}张/行=${total}张。配件：${accNotes.length ? accNotes.join("、") : "无"}。瓦片可切割。`);
-      return makeQuote(`封板瓦-${color}彩绘`, `${color}彩绘`, mergeItems(items), dims, notes);
+      const notes = [
+        `封板瓦${seriesLabel}系列：墙面宽${fmt(wallW)}公分×高${fmt(wallH)}公分。`,
+        `选用${prefix}${sizeKey}封板瓦（${data.thick}厚，高${data.height}公分），有效宽度${data.effWidth}公分。`,
+        `排版：${rows}行×${hTiles}张/行=${total}张。配件：${accNotes.length ? accNotes.join("、") : "无"}。瓦片可切割。`
+      ];
+      return makeQuote(`封板瓦-${color}${seriesLabel}`, `${color}${scenarioLabel}`, mergeItems(items), {A:wallW, B:wallH}, notes);
     }
 
     function makeQuote(title, scenario, items, dims, notes) {
@@ -1247,8 +1164,8 @@
       } else if (product === "resin") {
         quotes.push(buildResin());
       } else if (product === "sealing") {
-        quotes.push(buildSealingStandard());
-        quotes.push(buildSealingPainted());
+        quotes.push(buildSealing(PRICE.sealing.standard, "", "", "标准", "标准"));
+        quotes.push(buildSealing(PRICE.sealing.painted, "p", "彩绘", "彩绘", "彩绘"));
       } else {
         quotes.push(buildWall());
       }
