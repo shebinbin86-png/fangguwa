@@ -991,7 +991,6 @@ body {
                 <option value="four">四面坡</option>
                 <option value="pavilion4">四角亭</option>
                 <option value="pavilion6">六角亭</option>
-                <option value="wallDouble">围墙瓦</option>
               </select>
             </div>
             <div>
@@ -2217,7 +2216,6 @@ const CM = 100;
     });
     $("productType").addEventListener("change", () => {
       const p = $("productType").value;
-      if (p === "wall") $("roofType").value = "wallDouble";
       if (p !== "wall" && p !== "sealing" && $("roofType").value === "wallDouble") $("roofType").value = "double";
       updateUIForProductType();
       autoFillSealingAcc();
