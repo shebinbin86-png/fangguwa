@@ -1530,6 +1530,36 @@ const CM = 100;
     function choosePlasticSplice(slopeCm) {
       const up = [60,80,100], mid = [60,80,100], down = [40,50,60,80,100];
       const minMids = Math.max(0, Math.ceil((slopeCm - 200) / 100));
+
+      // 贪心快路径：当所需中段过多时，直接用60规格中段填充，避免组合爆炸
+      if (minMids > 10) {
+        const numMids = minMids;
+        const upSize = 60, midSize = 60;
+        const remaining = slopeCm - upSize - numMids * midSize;
+        let downSize = down.find(s => s >= remaining);
+        if (!downSize) {
+          // 下段不够，增加中段直到下段能覆盖
+          let extra = 0;
+          while (!downSize && extra < 100) {
+            extra++;
+            downSize = down.find(s => s >= remaining - extra * midSize);
+          }
+          if (!downSize) downSize = down[down.length - 1];
+          const actualMids = numMids + extra;
+          const parts = [{part:"up",size:upSize}];
+          for (let i = 0; i < actualMids; i++) parts.push({part:"mid",size:midSize});
+          parts.push({part:"down",size:downSize});
+          const total = parts.reduce((s,x)=>s+x.size,0);
+          return {parts, total, over:total-slopeCm, count:parts.length};
+        }
+        const parts = [{part:"up",size:upSize}];
+        for (let i = 0; i < numMids; i++) parts.push({part:"mid",size:midSize});
+        parts.push({part:"down",size:downSize});
+        const total = parts.reduce((s,x)=>s+x.size,0);
+        return {parts, total, over:total-slopeCm, count:parts.length};
+      }
+
+      // 暴力搜索（仅小坡度，minMids <= 10 时安全）
       for (let numMids = minMids; numMids <= minMids + 3; numMids++) {
         const combos = [];
         function genMid(prefix, depth) {
@@ -1556,7 +1586,8 @@ const CM = 100;
       const unit = 60;
       const downSizes = [40, 50, 60, 100];
       let best = null;
-      for (let num60 = 1; num60 <= 20; num60++) {
+      const maxNum = Math.ceil(slopeCm / unit) + 2;
+      for (let num60 = 1; num60 <= maxNum; num60++) {
         const beforeDown = num60 * unit;
         const remaining = slopeCm - beforeDown;
         if (remaining <= 0) continue;
