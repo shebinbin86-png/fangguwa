@@ -1025,7 +1025,7 @@ body {
             <div id="divC"><label>总高</label><input id="C" type="number" step="0.01" placeholder="可选"></div>
             <div id="divD"><label>斜坡尺寸</label><input id="D" type="number" step="0.01" placeholder="可选，优先使用"></div>
             <div id="divE"><label>横脊长度</label><input id="E" type="number" step="0.01" placeholder="三/四面坡可选"></div>
-            <div id="divWallSize"><label>围墙瓦规格</label><select id="wallSize"><option value="35斜坡双面瓦">35斜坡双面瓦（底宽35公分）</option><option value="50斜坡双面瓦">50斜坡双面瓦（底宽80公分）</option><option value="60斜坡双面瓦" selected>60斜坡双面瓦（底宽100公分）</option></select></div>
+            <div id="divWallSize"><label>围墙瓦规格</label><select id="wallSize"><option value="20斜坡双面瓦">20斜坡双面瓦（底宽35公分）</option><option value="30斜坡双面瓦">30斜坡双面瓦（底宽50公分）</option><option value="40斜坡双面瓦">40斜坡双面瓦（底宽60公分）</option><option value="50斜坡双面瓦">50斜坡双面瓦（底宽80公分）</option><option value="60斜坡双面瓦" selected>60斜坡双面瓦（底宽100公分）</option></select></div>
           </div>
 
           <h3>报价设置</h3>
@@ -1389,9 +1389,11 @@ const CM = 100;
         screw:{name:"螺丝+帽",spec:"个",sell:0.3,cost:0.3}
       },
       wall: {
-        "35斜坡双面瓦":{bottom:35,sell:35,cost:18},
-        "50斜坡双面瓦":{bottom:80,sell:50,cost:38},
-        "60斜坡双面瓦":{bottom:100,sell:60,cost:45},
+        "20斜坡双面瓦":{bottom:35, good:{sell:22,cost:12}, cheap:{sell:12,cost:7}},
+        "30斜坡双面瓦":{bottom:50, good:{sell:30,cost:18}, cheap:{sell:18,cost:10}},
+        "40斜坡双面瓦":{bottom:60, good:{sell:35,cost:25}, cheap:{sell:30,cost:20}},
+        "50斜坡双面瓦":{bottom:80, good:{sell:50,cost:38}},
+        "60斜坡双面瓦":{bottom:100, good:{sell:60,cost:45}},
         screw:{name:"膨胀螺丝+防水帽",spec:"套",sell:0.2,cost:0.2}
       },
       sealing: {
@@ -1821,15 +1823,17 @@ const CM = 100;
       }).filter(x=>x.over>=0).sort((a,b)=>a.count-b.count || a.over-b.over || a.types-b.types)[0]?.c || combos[combos.length-1];
     }
 
-    function buildWall() {
+    function buildWall(scenario) {
       const A = mToCm($("A").value);
       const sizeName = $("wallSize").value;
       const tile = PRICE.wall[sizeName];
+      const price = tile[scenario] || tile.good;
+      const label = scenario === "cheap" ? "便宜料" : "好料";
       const items = [];
       const qty = ceilBy(A,100);
-      addItem(items, sizeName, "有效1米", qty, tile.sell, tile.cost, `底部${tile.bottom}公分`);
+      addItem(items, sizeName, "有效1米", qty, price.sell, price.cost, `底部${tile.bottom}公分`);
       addItem(items, PRICE.wall.screw.name, "套", round10(qty*6), PRICE.wall.screw.sell, PRICE.wall.screw.cost);
-      return makeQuote("塑料围墙瓦", "围墙瓦", mergeItems(items), {A, wallSize:sizeName}, []);
+      return makeQuote(`塑料围墙瓦-${label}`, "围墙瓦", mergeItems(items), {A, wallSize:sizeName}, []);
     }
 
     function selectSealingSize(series, wallH) {
@@ -1908,7 +1912,11 @@ const CM = 100;
         quotes.push(buildSealing(PRICE.sealing.standard, "", "", "标准", "标准"));
         quotes.push(buildSealing(PRICE.sealing.painted, "p", "彩绘", "彩绘", "彩绘"));
       } else {
-        quotes.push(buildWall());
+        const sizeName = $("wallSize").value;
+        quotes.push(buildWall("good"));
+        if (PRICE.wall[sizeName] && PRICE.wall[sizeName].cheap) {
+          quotes.push(buildWall("cheap"));
+        }
       }
       active = 0;
       renderTabs();
