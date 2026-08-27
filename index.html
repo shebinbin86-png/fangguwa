@@ -1028,6 +1028,15 @@ body {
             <div id="divWallSize"><label>围墙瓦规格</label><select id="wallSize"><option value="20斜坡双面瓦">20斜坡双面瓦（底宽35公分）</option><option value="30斜坡双面瓦">30斜坡双面瓦（底宽50公分）</option><option value="40斜坡双面瓦">40斜坡双面瓦（底宽60公分）</option><option value="50斜坡双面瓦">50斜坡双面瓦（底宽80公分）</option><option value="60斜坡双面瓦" selected>60斜坡双面瓦（底宽100公分）</option></select></div>
           </div>
 
+          <div id="divWallAcc" style="display:none">
+            <h3>围墙瓦配件（选填，默认为0）</h3>
+            <div class="grid">
+              <div><label>围墙转角数量</label><input id="wallCorner" type="number" min="0" step="1" value="0"></div>
+              <div><label>围墙堵头数量</label><input id="wallCap" type="number" min="0" step="1" value="0"></div>
+            </div>
+            <div class="hint">注：20/30/40斜坡有转角和堵头配件，50/60斜坡暂无配套配件。</div>
+          </div>
+
           <h3>报价设置</h3>
           <div class="grid">
             <div id="divPavilionMode">
@@ -1394,7 +1403,17 @@ const CM = 100;
         "40斜坡双面瓦":{bottom:60, good:{sell:35,cost:25}, cheap:{sell:30,cost:20}},
         "50斜坡双面瓦":{bottom:80, good:{sell:50,cost:38}},
         "60斜坡双面瓦":{bottom:100, good:{sell:60,cost:45}},
-        screw:{name:"膨胀螺丝+防水帽",spec:"套",sell:0.2,cost:0.2}
+        screw:{name:"膨胀螺丝+防水帽",spec:"套",sell:0.2,cost:0.2},
+        corner: {
+          "20斜坡围墙转角":{good:{sell:22,cost:15}, cheap:{sell:20,cost:13}},
+          "30斜坡围墙转角":{good:{sell:22,cost:15}, cheap:{sell:20,cost:13}},
+          "40斜坡围墙转角":{good:{sell:70,cost:50}, cheap:{sell:60,cost:40}}
+        },
+        cap: {
+          "20斜坡堵头":{good:{sell:22,cost:15}, cheap:{sell:15,cost:10}},
+          "30斜坡堵头":{good:{sell:40,cost:28}, cheap:{sell:25,cost:17}},
+          "40斜坡堵头":{good:{sell:70,cost:50}, cheap:{sell:60,cost:40}}
+        }
       },
       sealing: {
         standard: {
@@ -1833,6 +1852,21 @@ const CM = 100;
       const qty = ceilBy(A,100);
       addItem(items, sizeName, "有效1米", qty, price.sell, price.cost, `底部${tile.bottom}公分`);
       addItem(items, PRICE.wall.screw.name, "套", round10(qty*6), PRICE.wall.screw.sell, PRICE.wall.screw.cost);
+      const sizePrefix = sizeName.replace("斜坡双面瓦", "");
+      const cornerName = `${sizePrefix}斜坡围墙转角`;
+      const capName = `${sizePrefix}斜坡堵头`;
+      const cornerQty = Number($("wallCorner").value) || 0;
+      const capQty = Number($("wallCap").value) || 0;
+      const cornerData = PRICE.wall.corner[cornerName];
+      const capData = PRICE.wall.cap[capName];
+      if (cornerQty > 0 && cornerData) {
+        const cp = cornerData[scenario] || cornerData.good;
+        addItem(items, cornerName, "个", cornerQty, cp.sell, cp.cost, `${sizePrefix}斜坡配套`);
+      }
+      if (capQty > 0 && capData) {
+        const cp = capData[scenario] || capData.good;
+        addItem(items, capName, "个", capQty, cp.sell, cp.cost, `${sizePrefix}斜坡配套`);
+      }
       return makeQuote(`塑料围墙瓦-${label}`, "围墙瓦", mergeItems(items), {A, wallSize:sizeName}, []);
     }
 
@@ -1925,7 +1959,7 @@ const CM = 100;
     }
 
     function readInputs() {
-      const ids = ["productType","roofType","color","angle","A","B","C","D","E","wallSize","pavilionMode","cornerType","sealEave","sealFlat","sealInner","sealOuter"];
+      const ids = ["productType","roofType","color","angle","A","B","C","D","E","wallSize","wallCorner","wallCap","pavilionMode","cornerType","sealEave","sealFlat","sealInner","sealOuter"];
       const data = Object.fromEntries(ids.map(id => [id, $(id).value]));
       if ($("sealScrew")) data.sealScrew = $("sealScrew").checked;
       return data;
@@ -2145,6 +2179,7 @@ const CM = 100;
       const hideCommon = ["divRoofType","divAngle","divC","divD","divE","divPavilionMode","divCornerType"];
       hideCommon.forEach(id => { if ($(id)) $(id).style.display = (isSealing || isWall) ? "none" : ""; });
       if ($("divWallSize")) $("divWallSize").style.display = isSealing ? "none" : "";
+      if ($("divWallAcc")) $("divWallAcc").style.display = isWall ? "" : "none";
       if ($("divSealingAcc")) $("divSealingAcc").style.display = isSealing ? "" : "none";
       const labelA = document.querySelector('#divA label');
       const labelB = document.querySelector('#divB label');
@@ -2193,7 +2228,7 @@ const CM = 100;
       autoFillSealingAcc();
       generate();
     });
-    ["roofType","color","angle","C","D","E","wallSize","pavilionMode","cornerType"].forEach(id => {
+    ["roofType","color","angle","C","D","E","wallSize","wallCorner","wallCap","pavilionMode","cornerType"].forEach(id => {
       $(id).addEventListener("change", generate);
     });
     ["A","B"].forEach(id => {
