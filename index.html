@@ -991,6 +991,7 @@ body {
                 <option value="four">四面坡</option>
                 <option value="pavilion4">四角亭</option>
                 <option value="pavilion6">六角亭</option>
+                <option value="wallDouble">围墙瓦</option>
               </select>
             </div>
             <div>
@@ -1024,7 +1025,7 @@ body {
             <div id="divC"><label>总高</label><input id="C" type="number" step="0.01" placeholder="可选"></div>
             <div id="divD"><label>斜坡尺寸</label><input id="D" type="number" step="0.01" placeholder="可选，优先使用"></div>
             <div id="divE"><label>横脊长度</label><input id="E" type="number" step="0.01" placeholder="三/四面坡可选"></div>
-            <div id="divWallThickness"><label>墙体厚度（围墙瓦用）</label><input id="wallThickness" type="number" step="0.01" placeholder="如0.24"></div>
+            <div id="divWallSize"><label>围墙瓦规格</label><select id="wallSize"><option value="35斜坡双面瓦">35斜坡双面瓦（底宽35公分）</option><option value="50斜坡双面瓦">50斜坡双面瓦（底宽80公分）</option><option value="60斜坡双面瓦" selected>60斜坡双面瓦（底宽100公分）</option></select></div>
           </div>
 
           <h3>报价设置</h3>
@@ -1393,15 +1394,6 @@ const CM = 100;
         "60斜坡双面瓦":{bottom:100,sell:60,cost:45},
         screw:{name:"膨胀螺丝+防水帽",spec:"套",sell:0.2,cost:0.2}
       },
-      accWall: {
-        ridge:{name:"正脊",spec:"1米",sell:15,cost:8},
-        zhengwen:{name:"正吻",spec:"",sell:15,cost:7},
-        xiangyun:{name:"祥云翘脚",spec:"90公分",sell:15,cost:9,usable:70},
-        qiaojiao:{name:"翘角",spec:"80公分",sell:15,cost:9,usable:55},
-        board:{name:"连接板",spec:"70公分",sell:6,cost:3},
-        gourd:{name:"宝顶葫芦",spec:"",sell:40,cost:30},
-        cap:{name:"封头",spec:"",sell:10,cost:5}
-      },
       sealing: {
         standard: {
           "25": {height:25, effWidth:107, sell:25, cost:22, thick:"2mm"},
@@ -1538,36 +1530,6 @@ const CM = 100;
     function choosePlasticSplice(slopeCm) {
       const up = [60,80,100], mid = [60,80,100], down = [40,50,60,80,100];
       const minMids = Math.max(0, Math.ceil((slopeCm - 200) / 100));
-
-      // 贪心快路径：当所需中段过多时，直接用60规格中段填充，避免组合爆炸
-      if (minMids > 10) {
-        const numMids = minMids;
-        const upSize = 60, midSize = 60;
-        const remaining = slopeCm - upSize - numMids * midSize;
-        let downSize = down.find(s => s >= remaining);
-        if (!downSize) {
-          // 下段不够，增加中段直到下段能覆盖
-          let extra = 0;
-          while (!downSize && extra < 100) {
-            extra++;
-            downSize = down.find(s => s >= remaining - extra * midSize);
-          }
-          if (!downSize) downSize = down[down.length - 1];
-          const actualMids = numMids + extra;
-          const parts = [{part:"up",size:upSize}];
-          for (let i = 0; i < actualMids; i++) parts.push({part:"mid",size:midSize});
-          parts.push({part:"down",size:downSize});
-          const total = parts.reduce((s,x)=>s+x.size,0);
-          return {parts, total, over:total-slopeCm, count:parts.length};
-        }
-        const parts = [{part:"up",size:upSize}];
-        for (let i = 0; i < numMids; i++) parts.push({part:"mid",size:midSize});
-        parts.push({part:"down",size:downSize});
-        const total = parts.reduce((s,x)=>s+x.size,0);
-        return {parts, total, over:total-slopeCm, count:parts.length};
-      }
-
-      // 暴力搜索（仅小坡度，minMids <= 10 时安全）
       for (let numMids = minMids; numMids <= minMids + 3; numMids++) {
         const combos = [];
         function genMid(prefix, depth) {
@@ -1594,8 +1556,7 @@ const CM = 100;
       const unit = 60;
       const downSizes = [40, 50, 60, 100];
       let best = null;
-      const maxNum = Math.ceil(slopeCm / unit) + 2;
-      for (let num60 = 1; num60 <= maxNum; num60++) {
+      for (let num60 = 1; num60 <= 20; num60++) {
         const beforeDown = num60 * unit;
         const remaining = slopeCm - beforeDown;
         if (remaining <= 0) continue;
@@ -1861,39 +1822,14 @@ const CM = 100;
     }
 
     function buildWall() {
-      const A = mToCm($("A").value), thick = mToCm($("wallThickness").value);
+      const A = mToCm($("A").value);
+      const sizeName = $("wallSize").value;
+      const tile = PRICE.wall[sizeName];
       const items = [];
-      const candidates = Object.entries(PRICE.wall).filter(([k])=>k!=="screw");
-      const chosen = candidates.find(([,v]) => v.bottom - thick >= 11) || candidates[candidates.length-1];
       const qty = ceilBy(A,100);
-      const acc = PRICE.accWall;
-      const cornerType = $("cornerType") ? $("cornerType").value : "xiangyun";
-      const corner = cornerType === "qiaojiao" ? acc.qiaojiao : acc.xiangyun;
-      const notes = [];
-
-      // 瓦片
-      addItem(items, chosen[0], "有效1米", qty, chosen[1].sell, chosen[1].cost, `底部${chosen[1].bottom}公分`);
-      // 正脊（围墙顶部，按围墙总长计算）
-      addItem(items, acc.ridge.name, acc.ridge.spec, ceilBy(A,100), acc.ridge.sell, acc.ridge.cost);
-      // 正吻（围墙两端各1个）
-      addItem(items, acc.zhengwen.name, acc.zhengwen.spec, 2, acc.zhengwen.sell, acc.zhengwen.cost);
-      // 翘角（围墙两端各1个）
-      addItem(items, corner.name, corner.spec, 2, corner.sell, corner.cost);
-      // 翘角延长
-      addItem(items, "翘角延长", acc.ridge.spec, cornerExtensionRidges(chosen[1].bottom, 2, corner.usable), acc.ridge.sell, acc.ridge.cost);
-      // 连接板
-      addItem(items, acc.board.name, acc.board.spec, boardQty(chosen[1].bottom, 2), acc.board.sell, acc.board.cost);
-      // 宝顶葫芦（围墙两端封顶，2个）
-      addItem(items, acc.gourd.name, acc.gourd.spec, 2, acc.gourd.sell, acc.gourd.cost);
-      // 封头（围墙两端封头，2个）
-      addItem(items, acc.cap.name, acc.cap.spec, 2, acc.cap.sell, acc.cap.cost);
-      // 螺丝
+      addItem(items, sizeName, "有效1米", qty, tile.sell, tile.cost, `底部${tile.bottom}公分`);
       addItem(items, PRICE.wall.screw.name, "套", round10(qty*6), PRICE.wall.screw.sell, PRICE.wall.screw.cost);
-
-      notes.push(`围墙瓦底部宽度必须比墙体厚度多至少11公分。当前选择：${chosen[0]}（底部${chosen[1].bottom}公分）。`);
-      notes.push(`配件：正脊按围墙总长计算，正吻/翘角/宝顶葫芦/封头各2个（围墙两端），连接板按底部宽度计算。`);
-
-      return makeQuote("塑料围墙瓦", "围墙瓦", mergeItems(items), {A, wallThickness:thick}, notes);
+      return makeQuote("塑料围墙瓦", "围墙瓦", mergeItems(items), {A, wallSize:sizeName}, []);
     }
 
     function selectSealingSize(series, wallH) {
@@ -1981,7 +1917,7 @@ const CM = 100;
     }
 
     function readInputs() {
-      const ids = ["productType","roofType","color","angle","A","B","C","D","E","wallThickness","pavilionMode","cornerType","sealEave","sealFlat","sealInner","sealOuter"];
+      const ids = ["productType","roofType","color","angle","A","B","C","D","E","wallSize","pavilionMode","cornerType","sealEave","sealFlat","sealInner","sealOuter"];
       const data = Object.fromEntries(ids.map(id => [id, $(id).value]));
       if ($("sealScrew")) data.sealScrew = $("sealScrew").checked;
       return data;
@@ -2002,21 +1938,14 @@ const CM = 100;
     }
 
     function renderTabs() {
-      $("tabs").innerHTML = quotes.map((q,i)=>`<button class="tab ${i===active?'active':''}" data-idx="${i}">${q.title}</button>`).join("");
-      $("tabs").querySelectorAll(".tab").forEach(btn => {
-        btn.addEventListener("click", () => {
-          active = Number(btn.dataset.idx);
-          renderTabs();
-          renderQuote();
-        });
-      });
+      $("tabs").innerHTML = quotes.map((q,i)=>`<button class="tab ${i===active?'active':''}" onclick="active=${i};renderTabs();renderQuote()">${q.title}</button>`).join("");
     }
 
     function generalNote() {
       const p = $("productType").value;
       if (p === "sealing") return "封板瓦：根据墙面高度自动选择瓦片规格，瓦片可切割。飞檐、平封、内角、外角数量可手动修改（0=不需要），修改墙面尺寸时自动填入默认值。螺丝加帽默认每米8个。59系列无飞檐。";
       if (p === "resin") return "树脂瓦：主脊与斜脊/边脊分别单独计算。树脂瓦翘角实际使用长度按0计算，斜脊/边脊全长需单独配1米正脊或斜脊。";
-      if (p === "wall") return "围墙瓦底部宽度必须比墙体厚度多至少11公分。";
+      if (p === "wall") return "围墙瓦：请从下拉框选择瓦型规格，底部宽度需比墙体厚度多至少11公分。";
       return "塑料瓦：主脊与翘角延长统称正脊，分别计算后合并数量。切割规则：三面坡、四面坡、亭子长度小于0.5米的边料可与其他面共用，长度大于等于0.5米时按1张瓦计算；单面坡、双面坡长度小于等于0.5米的边料可与其他面共用，长度大于0.5米时按1张瓦计算。";
     }
 
@@ -2072,7 +2001,7 @@ const CM = 100;
         if (d[k]) parts.push(`${names[k]}=${fmt(d[k])}公分`);
       });
       if (d.hip) parts.push(`斜脊尺寸=${fmt(d.hip)}公分`);
-      if (d.wallThickness) parts.push(`墙厚=${fmt(d.wallThickness)}公分`);
+      if (d.wallSize) parts.push(`规格=${d.wallSize}`);
       if (d.angle) parts.push(`角度=${d.angle}°`);
       return parts.join("；");
     }
@@ -2205,10 +2134,9 @@ const CM = 100;
       const p = $("productType").value;
       const isSealing = p === "sealing";
       const isWall = p === "wall";
-      const hideForSealing = ["divRoofType","divAngle","divC","divD","divE","divPavilionMode"];
-      hideForSealing.forEach(id => { if ($(id)) $(id).style.display = (isSealing || isWall) ? "none" : ""; });
-      if ($("divCornerType")) $("divCornerType").style.display = isSealing ? "none" : "";
-      if ($("divWallThickness")) $("divWallThickness").style.display = isSealing ? "none" : "";
+      const hideCommon = ["divRoofType","divAngle","divC","divD","divE","divPavilionMode","divCornerType"];
+      hideCommon.forEach(id => { if ($(id)) $(id).style.display = (isSealing || isWall) ? "none" : ""; });
+      if ($("divWallSize")) $("divWallSize").style.display = isSealing ? "none" : "";
       if ($("divSealingAcc")) $("divSealingAcc").style.display = isSealing ? "" : "none";
       const labelA = document.querySelector('#divA label');
       const labelB = document.querySelector('#divB label');
@@ -2251,12 +2179,13 @@ const CM = 100;
     });
     $("productType").addEventListener("change", () => {
       const p = $("productType").value;
+      if (p === "wall") $("roofType").value = "wallDouble";
       if (p !== "wall" && p !== "sealing" && $("roofType").value === "wallDouble") $("roofType").value = "double";
       updateUIForProductType();
       autoFillSealingAcc();
       generate();
     });
-    ["roofType","color","angle","C","D","E","wallThickness","pavilionMode","cornerType"].forEach(id => {
+    ["roofType","color","angle","C","D","E","wallSize","pavilionMode","cornerType"].forEach(id => {
       $(id).addEventListener("change", generate);
     });
     ["A","B"].forEach(id => {
