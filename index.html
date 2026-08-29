@@ -1460,6 +1460,8 @@ const CM = 100;
     const ceilBy = (v, unit) => Math.ceil((Number(v)||0) / unit);
     const fmt = n => Number.isInteger(Number(n)) ? String(n) : Number(n).toFixed(2).replace(/\.?0+$/,"");
 
+    window.fgw_select = function(i) { active = i; renderTabs(); renderQuote(); };
+
     function addItem(items, name, spec, qty, sell, cost, note="") {
       qty = Number(qty)||0;
       if (qty <= 0) return;
@@ -1994,7 +1996,7 @@ const CM = 100;
     }
 
     function renderTabs() {
-      $("tabs").innerHTML = quotes.map((q,i)=>`<button class="tab ${i===active?'active':''}" onclick="active=${i};renderTabs();renderQuote()">${q.title}</button>`).join("");
+      $("tabs").innerHTML = quotes.map((q,i)=>`<button class="tab ${i===active?'active':''}" onclick="window.fgw_select(${i})">${q.title}</button>`).join("");
     }
 
     function generalNote() {
