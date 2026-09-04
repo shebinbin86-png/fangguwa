@@ -1561,7 +1561,7 @@ const CM = 100;
 
     function choosePlasticSplice(slopeCm) {
       const up = [60,80,100], mid = [60,80,100], down = [40,50,60,80,100];
-      const minMids = Math.max(0, Math.ceil((slopeCm - 200) / 100));
+      const minMids = Math.min(Math.max(0, Math.ceil((slopeCm - 200) / 100)), 10);
       for (let numMids = minMids; numMids <= minMids + 3; numMids++) {
         const combos = [];
         function genMid(prefix, depth) {
@@ -1616,7 +1616,7 @@ const CM = 100;
       let C = C0, slope = D || 0;
       if (!D && C0) slope = C0 / Math.sin(angle);
       if (!D && !slope && slopeBase) slope = slopeBase / Math.cos(angle);
-      if (!slope && A) slope = A / 2 / Math.cos(angle);
+      if (!slope && A && (roofType === "double" || roofType === "four" || roofType === "pavilion4" || roofType === "pavilion6")) slope = A / 2 / Math.cos(angle);
       if (!C && roofType === "double") C = slope;
       if (!C && (roofType === "three" || roofType === "four")) C = E || Math.max(0, A - width);
       if (!C && (roofType === "pavilion4" || roofType === "pavilion6")) C = A / 2 / Math.cos(angle);
@@ -1633,6 +1633,7 @@ const CM = 100;
       const notes = [];
       const useColor = color !== "灰黑色";
       const label = useColor ? `${color}全新料` : (scenario === "normal" ? "灰黑色好料" : "灰黑色便宜料");
+      if (!slope && roof !== "pavilion4" && roof !== "pavilion6") return makeQuote(label, [], ["请填写斜坡尺寸或总宽。"], 0);
       const angleRad0 = angleDeg * Math.PI / 180;
       const hipLen = (roof === "four" || roof === "three") ? hipRafterLen(B, angleRad0) : 0;
       let dims = {A,B,C,D:slope,E, angle:angleDeg, hip:hipLen};
@@ -1726,7 +1727,11 @@ const CM = 100;
         const cornerQty = roof === "single" ? 2 : roof === "double" ? 4 : roof === "three" ? 2 : 4;
         addItem(items, corner.name, corner.spec, cornerQty, corner.sell, corner.cost);
         const angleRad = angleDeg * Math.PI / 180;
-        const edge = (roof === "four" || roof === "three") ? hipRafterLen(B, angleRad) : slope;
+        let hipWidth = B;
+        if (!hipWidth && slope) {
+          hipWidth = (roof === "four") ? slope * Math.cos(angleRad) * 2 : slope * Math.cos(angleRad);
+        }
+        const edge = (roof === "four" || roof === "three") ? hipRafterLen(hipWidth, angleRad) : slope;
         const edgeCount = roof === "single" ? 2 : roof === "double" ? 4 : roof === "three" ? 2 : 4;
         addItem(items, "正脊", acc.ridge.spec, cornerExtensionRidges(edge, cornerQty, corner.usable), acc.ridge.sell, acc.ridge.cost);
         if (roof === "three" || roof === "four") {
