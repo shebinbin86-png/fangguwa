@@ -1559,6 +1559,12 @@ const CM = 100;
       return Math.sqrt((B/2)**2 * 2 + h**2);
     }
 
+    function hipRafterLen6(A, angleRad) {
+      const apothem = A * Math.sqrt(3) / 2;
+      const h = apothem * Math.tan(angleRad);
+      return Math.sqrt(A * A + h * h);
+    }
+
     function choosePlasticSplice(slopeCm) {
       const up = [60,80,100], mid = [60,80,100], down = [40,50,60,80,100];
       const minMids = Math.min(Math.max(0, Math.ceil((slopeCm - 200) / 100)), 10);
@@ -1612,14 +1618,16 @@ const CM = 100;
       const angle = Number($("angle").value) * Math.PI / 180;
       const roofType = $("roofType").value;
       const width = B;
-      const slopeBase = (roofType === "double" || roofType === "four" || roofType === "pavilion4") ? width / 2 : width;
+      const slopeBase = (roofType === "double" || roofType === "four" || roofType === "pavilion4") ? width / 2
+        : (roofType === "pavilion6") ? (width ? width / 2 : A * Math.sqrt(3) / 2)
+        : width;
       let C = C0, slope = D || 0;
       if (!D && C0) slope = C0 / Math.sin(angle);
       if (!D && !slope && slopeBase) slope = slopeBase / Math.cos(angle);
       if (!C && roofType === "double") C = slope;
       if (!C && (roofType === "three" || roofType === "four")) C = E || Math.max(0, A - width);
-      if (!C && (roofType === "pavilion4" || roofType === "pavilion6")) C = A / 2 / Math.cos(angle);
-      const pavilionHeight = C0 || (A / 2 * Math.tan(angle));
+      const pavilionHeight = C0 || (slopeBase * Math.tan(angle));
+      if (!C && (roofType === "pavilion4" || roofType === "pavilion6")) C = pavilionHeight;
       const ridgeLength = (roofType === "three" || roofType === "four") ? (E || Math.max(0, A - width)) : C;
       return {A,B,C,D,E,slope, ridgeLength, angleDeg:Number($("angle").value), pavilionHeight};
     }
@@ -1634,7 +1642,8 @@ const CM = 100;
       const label = useColor ? `${color}全新料` : (scenario === "normal" ? "灰黑色好料" : "灰黑色便宜料");
       if (!slope && roof !== "pavilion4" && roof !== "pavilion6") return makeQuote(label, [], ["请填写斜坡尺寸或总宽。"], 0);
       const angleRad0 = angleDeg * Math.PI / 180;
-      const hipLen = (roof === "four" || roof === "three") ? hipRafterLen(B, angleRad0) : 0;
+      const hipLen = (roof === "four" || roof === "three" || roof === "pavilion4") ? hipRafterLen(B || A, angleRad0)
+        : (roof === "pavilion6") ? hipRafterLen6(A, angleRad0) : 0;
       let dims = {A,B,C,D:slope,E, angle:angleDeg, hip:hipLen};
       let tileCount = 0;
       let fixedScrewQty = null;
@@ -1672,12 +1681,12 @@ const CM = 100;
             }
             tileCount += qty;
           }
-          const edge = C || (A/2/Math.cos(angleDeg*Math.PI/180));
+          const edge = hipLen || C || (A/2/Math.cos(angleDeg*Math.PI/180));
           addItem(items, acc.gourd.name, acc.gourd.spec, 1, acc.gourd.sell, acc.gourd.cost);
           addItem(items, corner.name, corner.spec, faces, corner.sell, corner.cost);
           addItem(items, "翘角延长", acc.ridge.spec, cornerExtensionRidges(edge, faces, corner.usable), acc.ridge.sell, acc.ridge.cost);
           addItem(items, acc.board.name, acc.board.spec, boardQty(edge, faces), acc.board.sell, acc.board.cost);
-          notes.push(`亭子按梯形分段计算。A=${fmt(A)}公分，估算/输入C=${fmt(edge)}公分。`);
+          notes.push(`亭子按梯形分段计算。A=${fmt(A)}公分，斜坡=${fmt(slope)}公分，斜脊=${fmt(edge)}公分。`);
         }
       } else {
         const onePiece = slope <= 120;
@@ -1757,7 +1766,8 @@ const CM = 100;
       if (!slope && roof !== "pavilion4" && roof !== "pavilion6") return makeQuote("树脂瓦", [], ["请填写斜坡尺寸或总宽。"], 0);
       let tileCount = 0;
       const angleRadR = angleDeg * Math.PI / 180;
-      const hipLenR = (roof === "four" || roof === "three") ? hipRafterLen(B, angleRadR) : 0;
+      const hipLenR = (roof === "four" || roof === "three" || roof === "pavilion4") ? hipRafterLen(B || A, angleRadR)
+        : (roof === "pavilion6") ? hipRafterLen6(A, angleRadR) : 0;
       const dims = {A,B,C,D:slope,E, angle:angleDeg, hip:hipLenR};
       const notes = [
         "树脂瓦坡型尺寸按塑料瓦同一套规则计算。",
@@ -1782,7 +1792,7 @@ const CM = 100;
         });
         addItem(items, acc.gourd.name, acc.gourd.spec, 1, acc.gourd.sell, acc.gourd.cost);
         addItem(items, acc.corner.name, acc.corner.spec, faces, acc.corner.sell, acc.corner.cost);
-        addItem(items, "斜脊/边脊", acc.ridge.spec, ceilBy(C || height,100) * faces, acc.ridge.sell, acc.ridge.cost, "树脂瓦斜脊不用连接板");
+        addItem(items, "斜脊/边脊", acc.ridge.spec, ceilBy(hipLenR || C || height,100) * faces, acc.ridge.sell, acc.ridge.cost, "树脂瓦斜脊不用连接板");
       } else {
         const strictCut = roof === "single" || roof === "double";
         let faceWidths = [];
