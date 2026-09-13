@@ -1614,7 +1614,8 @@ const CM = 100;
     }
 
     function inputDims() {
-      const A = mToCm($("A").value), B = mToCm($("B").value), C0 = mToCm($("C").value), D = mToCm($("D").value), E = mToCm($("E").value);
+      const A = mToCm($("A").value), B = mToCm($("B").value), C0 = mToCm($("C").value), D = mToCm($("D").value);
+      let E = mToCm($("E").value);
       const angle = Number($("angle").value) * Math.PI / 180;
       const roofType = $("roofType").value;
       const width = B;
@@ -1624,11 +1625,12 @@ const CM = 100;
       let C = C0, slope = D || 0;
       if (!D && C0) slope = C0 / Math.sin(angle);
       if (!D && !slope && slopeBase) slope = slopeBase / Math.cos(angle);
-      if (!C && roofType === "double") C = slope;
-      if (!C && (roofType === "three" || roofType === "four")) C = E || Math.max(0, A - width);
+      if (!C && roofType === "double") C = slope * Math.sin(angle);
+      if (!E && (roofType === "three" || roofType === "four")) E = Math.max(0, A - width);
+      if (!C && (roofType === "three" || roofType === "four")) C = slope * Math.sin(angle);
       const pavilionHeight = C0 || (slopeBase * Math.tan(angle));
       if (!C && (roofType === "pavilion4" || roofType === "pavilion6")) C = pavilionHeight;
-      const ridgeLength = (roofType === "three" || roofType === "four") ? (E || Math.max(0, A - width)) : C;
+      const ridgeLength = (roofType === "three" || roofType === "four") ? E : C;
       return {A,B,C,D,E,slope, ridgeLength, angleDeg:Number($("angle").value), pavilionHeight};
     }
 
@@ -1820,7 +1822,7 @@ const CM = 100;
         const ridgeLen = roof === "single" || roof === "double" ? A : ridgeLength;
         addItem(items, "主脊", acc.ridge.spec, ceilBy(ridgeLen,100), acc.ridge.sell, acc.ridge.cost);
         const angleRad = angleDeg * Math.PI / 180;
-        const edgeLen = (roof === "four" || roof === "three") ? hipRafterLen(B, angleRad) : (roof === "single" || roof === "double" ? (C || slope) : slope);
+        const edgeLen = (roof === "four" || roof === "three") ? hipRafterLen(B, angleRad) : slope;
         const edgeCount = roof === "single" ? 2 : roof === "double" ? 4 : roof === "three" ? 2 : 4;
         addItem(items, "斜脊/边脊", acc.ridge.spec, ceilBy(edgeLen * edgeCount, 100), acc.ridge.sell, acc.ridge.cost, "正脊可切割，按斜脊总长度合并取整");
         addItem(items, acc.gourd.name, acc.gourd.spec, 2, acc.gourd.sell, acc.gourd.cost);
