@@ -1559,6 +1559,11 @@ const CM = 100;
       return Math.sqrt((B/2)**2 * 2 + h**2);
     }
 
+    function hipRafterLenThree(B, angleRad) {
+      const h = B * Math.tan(angleRad);
+      return Math.sqrt(B**2 + (B/2)**2 + h**2);
+    }
+
     function hipRafterLen6(A, angleRad) {
       const apothem = A * Math.sqrt(3) / 2;
       const h = apothem * Math.tan(angleRad);
@@ -1644,7 +1649,8 @@ const CM = 100;
       const label = useColor ? `${color}全新料` : (scenario === "normal" ? "灰黑色好料" : "灰黑色便宜料");
       if (!slope && roof !== "pavilion4" && roof !== "pavilion6") return makeQuote(label, [], ["请填写斜坡尺寸或总宽。"], 0);
       const angleRad0 = angleDeg * Math.PI / 180;
-      const hipLen = (roof === "four" || roof === "three" || roof === "pavilion4") ? hipRafterLen(B || A, angleRad0)
+      const hipLen = (roof === "four" || roof === "pavilion4") ? hipRafterLen(B || A, angleRad0)
+        : (roof === "three") ? hipRafterLenThree(B || A, angleRad0)
         : (roof === "pavilion6") ? hipRafterLen6(A, angleRad0) : 0;
       let dims = {A,B,C,D:slope,E, angle:angleDeg, hip:hipLen};
       let tileCount = 0;
@@ -1741,7 +1747,8 @@ const CM = 100;
         if (!hipWidth && slope) {
           hipWidth = (roof === "four") ? slope * Math.cos(angleRad) * 2 : slope * Math.cos(angleRad);
         }
-        const edge = (roof === "four" || roof === "three") ? hipRafterLen(hipWidth, angleRad) : slope;
+        const edge = roof === "four" ? hipRafterLen(hipWidth, angleRad)
+          : roof === "three" ? hipRafterLenThree(hipWidth, angleRad) : slope;
         const edgeCount = roof === "single" ? 2 : roof === "double" ? 4 : roof === "three" ? 2 : 4;
         addItem(items, "正脊", acc.ridge.spec, cornerExtensionRidges(edge, cornerQty, corner.usable), acc.ridge.sell, acc.ridge.cost);
         if (roof === "three" || roof === "four") {
@@ -1768,7 +1775,8 @@ const CM = 100;
       if (!slope && roof !== "pavilion4" && roof !== "pavilion6") return makeQuote("树脂瓦", [], ["请填写斜坡尺寸或总宽。"], 0);
       let tileCount = 0;
       const angleRadR = angleDeg * Math.PI / 180;
-      const hipLenR = (roof === "four" || roof === "three" || roof === "pavilion4") ? hipRafterLen(B || A, angleRadR)
+      const hipLenR = (roof === "four" || roof === "pavilion4") ? hipRafterLen(B || A, angleRadR)
+        : (roof === "three") ? hipRafterLenThree(B || A, angleRadR)
         : (roof === "pavilion6") ? hipRafterLen6(A, angleRadR) : 0;
       const dims = {A,B,C,D:slope,E, angle:angleDeg, hip:hipLenR};
       const notes = [
@@ -1822,7 +1830,8 @@ const CM = 100;
         const ridgeLen = roof === "single" || roof === "double" ? A : ridgeLength;
         addItem(items, "主脊", acc.ridge.spec, ceilBy(ridgeLen,100), acc.ridge.sell, acc.ridge.cost);
         const angleRad = angleDeg * Math.PI / 180;
-        const edgeLen = (roof === "four" || roof === "three") ? hipRafterLen(B, angleRad) : slope;
+        const edgeLen = roof === "four" ? hipRafterLen(B, angleRad)
+          : roof === "three" ? hipRafterLenThree(B, angleRad) : slope;
         const edgeCount = roof === "single" ? 2 : roof === "double" ? 4 : roof === "three" ? 2 : 4;
         addItem(items, "斜脊/边脊", acc.ridge.spec, ceilBy(edgeLen * edgeCount, 100), acc.ridge.sell, acc.ridge.cost, "正脊可切割，按斜脊总长度合并取整");
         addItem(items, acc.gourd.name, acc.gourd.spec, 2, acc.gourd.sell, acc.gourd.cost);
