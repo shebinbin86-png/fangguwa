@@ -1559,6 +1559,10 @@ const CM = 100;
       return Math.sqrt((B/2)**2 * 2 + h**2);
     }
 
+    function hipRafterLenRect(A, B, height) {
+      return Math.sqrt((A/2)**2 + (B/2)**2 + height**2);
+    }
+
     function hipRafterLenThree(B, angleRad) {
       const h = B * Math.tan(angleRad);
       return Math.sqrt(B**2 + (B/2)**2 + h**2);
@@ -1649,7 +1653,7 @@ const CM = 100;
       const label = useColor ? `${color}全新料` : (scenario === "normal" ? "灰黑色好料" : "灰黑色便宜料");
       if (!slope && roof !== "pavilion4" && roof !== "pavilion6") return makeQuote(label, [], ["请填写斜坡尺寸或总宽。"], 0);
       const angleRad0 = angleDeg * Math.PI / 180;
-      const hipLen = (roof === "four" || roof === "pavilion4") ? hipRafterLen(B || A, angleRad0)
+      const hipLen = (roof === "four" || roof === "pavilion4") ? (roof === "pavilion4" && B && Math.abs(B - A) > 0.1 ? hipRafterLenRect(A, B, pavilionHeight || (B/2 * Math.tan(angleRad0))) : hipRafterLen(B || A, angleRad0))
         : (roof === "three") ? hipRafterLenThree(B || A, angleRad0)
         : (roof === "pavilion6") ? hipRafterLen6(A, angleRad0) : 0;
       let dims = {A,B,C,D:slope,E, angle:angleDeg, hip:hipLen};
@@ -1676,16 +1680,28 @@ const CM = 100;
         } else {
           const segment = 60;
           const segs = Math.max(2, Math.ceil(height / segment));
+          const hasB = roof === "pavilion4" && B && B > 0 && Math.abs(B - A) > 0.1;
           for (let s=1; s<=segs; s++) {
             const h = Math.min(segment * s, height);
-            const width = lower / height * h;
-            const qty = splitCountByWidth(Array(faces).fill(width), 105);
+            let qty, widthDesc;
+            if (hasB) {
+              const wA = A / height * h;
+              const wB = B / height * h;
+              const qtyA = splitCountByWidth([wA, wA], 105);
+              const qtyB = splitCountByWidth([wB, wB], 105);
+              qty = qtyA + qtyB;
+              widthDesc = `A面宽${fmt(wA)}公分×2面，B面宽${fmt(wB)}公分×2面`;
+            } else {
+              const width = lower / height * h;
+              qty = splitCountByWidth(Array(faces).fill(width), 105);
+              widthDesc = `分段宽度约${fmt(width)}公分`;
+            }
             if (s === segs) {
               const downP = choosePavilionPrice(PRICE.pavilion.down60, scenario);
-              addItem(items, "拼下", "110×60", qty, downP.sell, downP.cost, `分段宽度约${fmt(width)}公分`);
+              addItem(items, "拼下", "110×60", qty, downP.sell, downP.cost, widthDesc);
             } else {
               const midP = choosePavilionPrice(PRICE.pavilion.mid60, scenario);
-              addItem(items, "拼中", "110×60", qty, midP.sell, midP.cost, `分段宽度约${fmt(width)}公分`);
+              addItem(items, "拼中", "110×60", qty, midP.sell, midP.cost, widthDesc);
             }
             tileCount += qty;
           }
@@ -1694,7 +1710,11 @@ const CM = 100;
           addItem(items, corner.name, corner.spec, faces, corner.sell, corner.cost);
           addItem(items, "翘角延长", acc.ridge.spec, cornerExtensionRidges(edge, faces, corner.usable), acc.ridge.sell, acc.ridge.cost);
           addItem(items, acc.board.name, acc.board.spec, boardQty(edge, faces), acc.board.sell, acc.board.cost);
-          notes.push(`亭子按梯形分段计算。A=${fmt(A)}公分，斜坡=${fmt(slope)}公分，斜脊=${fmt(edge)}公分。`);
+          if (hasB) {
+            notes.push(`四角亭长宽不等，A面(2面)和B面(2面)分开计算后汇总。A=${fmt(A)}公分，B=${fmt(B)}公分，斜坡=${fmt(slope)}公分，斜脊=${fmt(edge)}公分。`);
+          } else {
+            notes.push(`亭子按梯形分段计算。A=${fmt(A)}公分，斜坡=${fmt(slope)}公分，斜脊=${fmt(edge)}公分。`);
+          }
         }
       } else {
         const onePiece = slope <= 120;
@@ -1775,7 +1795,7 @@ const CM = 100;
       if (!slope && roof !== "pavilion4" && roof !== "pavilion6") return makeQuote("树脂瓦", [], ["请填写斜坡尺寸或总宽。"], 0);
       let tileCount = 0;
       const angleRadR = angleDeg * Math.PI / 180;
-      const hipLenR = (roof === "four" || roof === "pavilion4") ? hipRafterLen(B || A, angleRadR)
+      const hipLenR = (roof === "four" || roof === "pavilion4") ? (roof === "pavilion4" && B && Math.abs(B - A) > 0.1 ? hipRafterLenRect(A, B, pavilionHeight || (B/2 * Math.tan(angleRadR))) : hipRafterLen(B || A, angleRadR))
         : (roof === "three") ? hipRafterLenThree(B || A, angleRadR)
         : (roof === "pavilion6") ? hipRafterLen6(A, angleRadR) : 0;
       const dims = {A,B,C,D:slope,E, angle:angleDeg, hip:hipLenR};
@@ -1788,16 +1808,29 @@ const CM = 100;
         const faces = roof === "pavilion4" ? 4 : 6;
         const height = pavilionHeight || 120;
         const lower = A;
+        const hasB = roof === "pavilion4" && B && B > 0 && Math.abs(B - A) > 0.1;
         const parts = chooseResinParts(height);
         let cumulative = 0;
         parts.forEach((part, idx) => {
           cumulative += part.size;
           if (idx > 0) cumulative -= 10;
-          const width = lower / height * Math.min(cumulative, height);
-          const qty = splitCountByWidth(Array(faces).fill(width), 100);
+          const effH = Math.min(cumulative, height);
+          let qty, widthDesc;
+          if (hasB) {
+            const wA = A / height * effH;
+            const wB = B / height * effH;
+            const qtyA = splitCountByWidth([wA, wA], 100);
+            const qtyB = splitCountByWidth([wB, wB], 100);
+            qty = qtyA + qtyB;
+            widthDesc = `A面宽${fmt(wA)}公分×2面，B面宽${fmt(wB)}公分×2面`;
+          } else {
+            const width = lower / height * effH;
+            qty = splitCountByWidth(Array(faces).fill(width), 100);
+            widthDesc = `分段宽度约${fmt(width)}公分`;
+          }
           const data = PRICE.resin[part.part][String(part.size)];
           const name = part.part === "mid" ? "拼中" : "拼下";
-          addItem(items, name, data.spec, qty, data.sell, data.cost, `分段宽度约${fmt(width)}公分`);
+          addItem(items, name, data.spec, qty, data.sell, data.cost, widthDesc);
           tileCount += qty;
         });
         addItem(items, acc.gourd.name, acc.gourd.spec, 1, acc.gourd.sell, acc.gourd.cost);
