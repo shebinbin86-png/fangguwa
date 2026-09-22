@@ -1687,10 +1687,10 @@ const CM = 100;
             if (hasB) {
               const wA = A / height * h;
               const wB = B / height * h;
-              const qtyA = splitCountByWidth([wA, wA], 105);
-              const qtyB = splitCountByWidth([wB, wB], 105);
+              const qtyA = Math.ceil(wA / 105) * 2;
+              const qtyB = Math.ceil(wB / 105) * 2;
               qty = qtyA + qtyB;
-              widthDesc = `A面宽${fmt(wA)}公分×2面，B面宽${fmt(wB)}公分×2面`;
+              widthDesc = `A面宽${fmt(wA)}公分×2面=${qtyA}张，B面宽${fmt(wB)}公分×2面=${qtyB}张`;
             } else {
               const width = lower / height * h;
               qty = splitCountByWidth(Array(faces).fill(width), 105);
@@ -1819,10 +1819,10 @@ const CM = 100;
           if (hasB) {
             const wA = A / height * effH;
             const wB = B / height * effH;
-            const qtyA = splitCountByWidth([wA, wA], 100);
-            const qtyB = splitCountByWidth([wB, wB], 100);
+            const qtyA = Math.ceil(wA / 100) * 2;
+            const qtyB = Math.ceil(wB / 100) * 2;
             qty = qtyA + qtyB;
-            widthDesc = `A面宽${fmt(wA)}公分×2面，B面宽${fmt(wB)}公分×2面`;
+            widthDesc = `A面宽${fmt(wA)}公分×2面=${qtyA}张，B面宽${fmt(wB)}公分×2面=${qtyB}张`;
           } else {
             const width = lower / height * effH;
             qty = splitCountByWidth(Array(faces).fill(width), 100);
