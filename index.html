@@ -1640,12 +1640,17 @@ const CM = 100;
       const pavilionHeight = C0 || (slopeBase * Math.tan(angle));
       if (!C && (roofType === "pavilion4" || roofType === "pavilion6")) C = pavilionHeight;
       const ridgeLength = (roofType === "three" || roofType === "four") ? E : C;
-      return {A,B,C,D,E,slope, ridgeLength, angleDeg:Number($("angle").value), pavilionHeight};
+      let slopeA = 0, slopeB = 0;
+      if (roofType === "pavilion4" && B && A && Math.abs(A - B) > 0.1) {
+        slopeB = slope;
+        slopeA = Math.sqrt((A/2)**2 + pavilionHeight**2);
+      }
+      return {A,B,C,D,E,slope, slopeA, slopeB, ridgeLength, angleDeg:Number($("angle").value), pavilionHeight};
     }
 
     function buildPlasticRoof(scenario) {
       const roof = $("roofType").value, color = $("color").value;
-      const {A,B,C,E,slope,ridgeLength,pavilionHeight,angleDeg} = inputDims();
+      const {A,B,C,E,slope,slopeA,slopeB,ridgeLength,pavilionHeight,angleDeg} = inputDims();
       const acc = color !== "灰黑色" ? PRICE.accPlasticColor : (scenario === "cheap" ? PRICE.accPlasticCheap : PRICE.accPlastic);
       const items = [];
       const notes = [];
@@ -1656,7 +1661,7 @@ const CM = 100;
       const hipLen = (roof === "four" || roof === "pavilion4") ? (roof === "pavilion4" && B && Math.abs(B - A) > 0.1 ? hipRafterLenRect(A, B, pavilionHeight || (B/2 * Math.tan(angleRad0))) : hipRafterLen(B || A, angleRad0))
         : (roof === "three") ? hipRafterLenThree(B || A, angleRad0)
         : (roof === "pavilion6") ? hipRafterLen6(A, angleRad0) : 0;
-      let dims = {A,B,C,D:slope,E, angle:angleDeg, hip:hipLen};
+      let dims = {A,B,C,D:slope,E, slopeA, slopeB, angle:angleDeg, hip:hipLen};
       let tileCount = 0;
       let fixedScrewQty = null;
       const corner = $("cornerType").value === "qiaojiao" ? acc.qiaojiao : acc.xiangyun;
@@ -1665,6 +1670,7 @@ const CM = 100;
         const faces = roof === "pavilion4" ? 4 : 6;
         const height = pavilionHeight || 120;
         const lower = A;
+        const hasB = roof === "pavilion4" && B && B > 0 && Math.abs(B - A) > 0.1;
         if ($("pavilionMode").value === "common2m" && roof === "pavilion4") {
           const midP = choosePavilionPrice(PRICE.pavilion.mid60, scenario);
           const downP = choosePavilionPrice(PRICE.pavilion.down60, scenario);
@@ -1685,7 +1691,7 @@ const CM = 100;
           addItem(items, corner.name, corner.spec, 4, corner.sell, corner.cost);
           addItem(items, "翘角延长", acc.ridge.spec, cornerExtensionRidges(edge, 4, corner.usable), acc.ridge.sell, acc.ridge.cost);
           addItem(items, acc.board.name, acc.board.spec, boardQty(edge, 4), acc.board.sell, acc.board.cost);
-          notes.push(`2米四角亭按角度${angleDeg}°计算：总高${fmt(height)}公分，斜坡${fmt(slope)}公分，斜脊${fmt(edge)}公分。拼中${q1+q2}张，拼下${q3}张。`);
+          notes.push(`2米四角亭按角度${angleDeg}°计算：总高${fmt(height)}公分，斜坡A=${fmt(slopeA||slope)}公分，斜坡B=${fmt(slopeB||slope)}公分，斜脊${fmt(edge)}公分。拼中${q1+q2}张，拼下${q3}张。`);
         } else {
           const segment = 60;
           const segs = Math.max(2, Math.ceil(height / segment));
@@ -1720,7 +1726,7 @@ const CM = 100;
           addItem(items, "翘角延长", acc.ridge.spec, cornerExtensionRidges(edge, faces, corner.usable), acc.ridge.sell, acc.ridge.cost);
           addItem(items, acc.board.name, acc.board.spec, boardQty(edge, faces), acc.board.sell, acc.board.cost);
           if (hasB) {
-            notes.push(`四角亭长宽不等，A面(2面)和B面(2面)分开计算后汇总。A=${fmt(A)}公分，B=${fmt(B)}公分，斜坡=${fmt(slope)}公分，斜脊=${fmt(edge)}公分。`);
+            notes.push(`四角亭长宽不等，A面(2面)和B面(2面)分开计算后汇总。A=${fmt(A)}公分，B=${fmt(B)}公分，斜坡A=${fmt(slopeA||slope)}公分，斜坡B=${fmt(slopeB||slope)}公分，斜脊=${fmt(edge)}公分。`);
           } else {
             notes.push(`亭子按梯形分段计算。A=${fmt(A)}公分，斜坡=${fmt(slope)}公分，斜脊=${fmt(edge)}公分。`);
           }
@@ -1798,7 +1804,7 @@ const CM = 100;
 
     function buildResin() {
       const roof = $("roofType").value;
-      const {A,B,C,E,slope,ridgeLength,pavilionHeight,angleDeg} = inputDims();
+      const {A,B,C,E,slope,slopeA,slopeB,ridgeLength,pavilionHeight,angleDeg} = inputDims();
       const items = [];
       const acc = PRICE.accResin;
       if (!slope && roof !== "pavilion4" && roof !== "pavilion6") return makeQuote("树脂瓦", [], ["请填写斜坡尺寸或总宽。"], 0);
@@ -1807,7 +1813,7 @@ const CM = 100;
       const hipLenR = (roof === "four" || roof === "pavilion4") ? (roof === "pavilion4" && B && Math.abs(B - A) > 0.1 ? hipRafterLenRect(A, B, pavilionHeight || (B/2 * Math.tan(angleRadR))) : hipRafterLen(B || A, angleRadR))
         : (roof === "three") ? hipRafterLenThree(B || A, angleRadR)
         : (roof === "pavilion6") ? hipRafterLen6(A, angleRadR) : 0;
-      const dims = {A,B,C,D:slope,E, angle:angleDeg, hip:hipLenR};
+      const dims = {A,B,C,D:slope,E, slopeA, slopeB, angle:angleDeg, hip:hipLenR};
       const notes = [
         "树脂瓦坡型尺寸按塑料瓦同一套规则计算。",
         "树脂瓦长度105公分，横向实际使用按1米；上下搭接时，每搭接一次有效坡长减少10公分。"
@@ -2123,9 +2129,15 @@ const CM = 100;
         return parts.join("；");
       }
       const names = {A:"总长", B:"总宽", C:"总高", D:"斜坡尺寸", E:"横脊长度"};
-      ["A","B","C","D","E"].forEach(k => {
+      ["A","B","C","E"].forEach(k => {
         if (d[k]) parts.push(`${names[k]}=${fmt(d[k])}公分`);
       });
+      if (d.slopeA && d.slopeB) {
+        parts.push(`斜坡A=${fmt(d.slopeA)}公分`);
+        parts.push(`斜坡B=${fmt(d.slopeB)}公分`);
+      } else if (d.D) {
+        parts.push(`斜坡尺寸=${fmt(d.D)}公分`);
+      }
       if (d.hip) parts.push(`斜脊尺寸=${fmt(d.hip)}公分`);
       if (d.wallSize) parts.push(`规格=${d.wallSize}`);
       if (d.angle) parts.push(`角度=${d.angle}°`);
