@@ -1888,13 +1888,30 @@ const CM = 100;
           notes.push("树脂瓦斜坡小于等于190公分时，按一体瓦计算。");
         } else {
           const parts = chooseResinRoofParts(slope);
+          const totalSize = parts.reduce((s, x) => s + x.size, 0);
+          let topWidths = faceWidths.map(() => 0);
+          if (roof === "single" || roof === "double") {
+            topWidths = faceWidths.map(w => w);
+          } else if (roof === "three") {
+            topWidths = [ridgeLength, 0, 0];
+          } else if (roof === "four") {
+            topWidths = [ridgeLength, ridgeLength, 0, 0];
+          }
+          let cumSize = 0;
           parts.forEach(part => {
+            cumSize += part.size;
+            const endH = slope * cumSize / totalSize;
+            const widthsAtBottom = faceWidths.map((bottom, i) => {
+              const tp = topWidths[i] || 0;
+              return tp + (bottom - tp) / slope * endH;
+            });
+            const segQty = splitCountByWidth(widthsAtBottom, 100, strictCut);
             const data = PRICE.resin[part.part][String(part.size)];
             const name = part.part === "spliceUp" ? "拼上" : part.part === "mid" ? "拼中" : "拼下";
-            addItem(items, name, data.spec, qtyEach, data.sell, data.cost);
-            tileCount += qtyEach;
+            addItem(items, name, data.spec, segQty, data.sell, data.cost, `组合总长${totalSize}公分，段底宽度约${fmt(widthsAtBottom[0])}公分`);
+            tileCount += segQty;
           });
-          notes.push("树脂瓦非亭子坡面拼接时，按拼上、拼中、拼下组合计算。");
+          notes.push("树脂瓦非亭子坡面拼接时，按拼上、拼中、拼下组合计算，并按梯形分段自动计算每段数量。");
         }
         const ridgeLen = roof === "single" || roof === "double" ? A : ridgeLength;
         addItem(items, "主脊", acc.ridge.spec, ceilBy(ridgeLen,100), acc.ridge.sell, acc.ridge.cost);
